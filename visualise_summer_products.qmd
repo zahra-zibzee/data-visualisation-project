@@ -58,13 +58,68 @@ Badge awarded when many buyers consistently gave good evaluations 1 means Yes, h
 products |>
   summarise(n_distinct(tags), nrow(products))
 ```
+>> product_color  (102 distinct colors)
 
+```{r}
+products |>
+  distinct(product_color)
+```
+>> product_variation_size_id
 
+The column is not tidy. It requires some adjustments and cleaning.
+E.g. we can see both 'M' and 'M.' in this column.
+```{r}
+products |>
+  distinct(product_variation_size_id)
+```
+>> product_variation_inventory
+
+????????????????????????????????????????????????????
+
+>> shipping_option_price 
+
+change the column name to shipping_price
+
+>> inventory_total 
+
+??????????????????????????????????????????????????????
+
+>> has_urgency_banner
+
+could have been a good measure!
+```{r}
+products |>
+  distinct(has_urgency_banner)
+```
+>> origin_country
+
+```{r}
+products |>
+  distinct(origin_country)
+```
+theme and crawl_month are already useless because our data was limited to summer and the month July.
+```{r}
+products |>
+  distinct(theme)
+```
 
 
 >> Things TODO
 
 rating_count ~ units_sold
+
+countries_shipped_to ~ units_sold 
+(because if seller increases the number of countries for shipping, number of demands also increases.)
+
+merchant_has_profile_picture could also have some effects :?
+
+>> Best sellers
+
+We can have a discussion on sellers too. Best sellers based on number of units sold, rating, mean of products price comparing with mean of retail prices, mean of discounts, mean of product ratings and so on. 
+
+>> Best products
+
+Based on ratings (mean and median, also we can define a range for bad and good rating and have some analysis on good and bad ratings too), mean of prices and retail prices, units solds and so on.
 
 
 
