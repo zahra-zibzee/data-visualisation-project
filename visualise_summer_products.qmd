@@ -1,0 +1,73 @@
+
+
+The dataset is sourced from data.world:
+  >> https://data.world/jfreex/summer-products-and-sales-performance-in-e-commerce-on-wish
+
+
+In this project, we are planing to analyse the summer-related products, as of July 2020. The dataset consists of a snapshot of some of the products available on the e-commerce platform Wish.com.
+
+
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+```
+
+
+```{r}
+products <- readr::read_csv("data/summer_products_with_rating_and_performance_2020_08.csv", show_col_types = FALSE)
+```
+
+
+>> Some explanations about the dataset:
+
+>> retail price:
+
+retail price, or reference price in other stores/places. Used by the seller to indicate a regular value or the price before discount.
+
+>> uses_ad_boosts
+
+Whether the seller paid to boost his product within the platform (highlighting, better placement or whatever)
+
+>> rating_count
+
+Total number of ratings of the product
+
+>> badges_count
+
+Number of badges the product or the seller have
+```{r}
+products |>
+  group_by(badges_count) |>
+  summarise(count = n(), percentage = round((n() / nrow(products)) * 100, 2))
+```
+>> badge_local_product
+
+A badge that denotes the product is a local product. Some people may prefer buying local products rather than. (boolean)
+
+>> badge_product_quality
+
+Badge awarded when many buyers consistently gave good evaluations 1 means Yes, has the badge
+
+>> tags
+
+'tags will not be a good evaluation'
+
+```{r}
+products |>
+  summarise(n_distinct(tags), nrow(products))
+```
+
+
+
+
+>> Things TODO
+
+rating_count ~ units_sold
+
+
+
+
+
+
