@@ -12,6 +12,8 @@ In this project, we are planing to analyse the summer-related products, as of Ju
 library(tidyverse)
 library(ggplot2)
 library(dplyr)
+library(GGally)
+library(ggExtra)
 ```
 
 
@@ -20,93 +22,10 @@ products <- readr::read_csv("data/summer_products_with_rating_and_performance_20
 ```
 
 
->> Some explanations about the dataset:
-
->> retail price:
-
-retail price, or reference price in other stores/places. Used by the seller to indicate a regular value or the price before discount.
-
->> uses_ad_boosts
-
-Whether the seller paid to boost his product within the platform (highlighting, better placement or whatever)
-
->> rating_count
-
-Total number of ratings of the product
-
->> badges_count
-
-Number of badges the product or the seller have
-```{r}
-products |>
-  group_by(badges_count) |>
-  summarise(count = n(), percentage = round((n() / nrow(products)) * 100, 2))
-```
->> badge_local_product
-
-A badge that denotes the product is a local product. Some people may prefer buying local products rather than. (boolean)
-
->> badge_product_quality
-
-Badge awarded when many buyers consistently gave good evaluations 1 means Yes, has the badge
-
->> tags
-
-'tags will not be a good evaluation'
-
-```{r}
-products |>
-  summarise(n_distinct(tags), nrow(products))
-```
->> product_color  (102 distinct colors)
-
-```{r}
-products |>
-  distinct(product_color)
-```
->> product_variation_size_id
-
-The column is not tidy. It requires some adjustments and cleaning.
-E.g. we can see both 'M' and 'M.' in this column.
-```{r}
-products |>
-  distinct(product_variation_size_id)
-```
->> product_variation_inventory
-
-????????????????????????????????????????????????????
-
->> shipping_option_price 
-
-change the column name to shipping_price
-
->> inventory_total 
-
-??????????????????????????????????????????????????????
-
->> has_urgency_banner
-
-could have been a good measure!
-```{r}
-products |>
-  distinct(has_urgency_banner)
-```
->> origin_country
-
-```{r}
-products |>
-  distinct(origin_country)
-```
-theme and crawl_month are already useless because our data was limited to summer and the month July.
-```{r}
-products |>
-  distinct(theme)
-```
-
 
 >> Things TODO
 
-rating_count ~ units_sold
+Do analysis on tag, then group by clothes into two groups of men and women. 
 
 countries_shipped_to ~ units_sold 
 (because if seller increases the number of countries for shipping, number of demands also increases.)
@@ -120,6 +39,229 @@ We can have a discussion on sellers too. Best sellers based on number of units s
 >> Best products
 
 Based on ratings (mean and median, also we can define a range for bad and good rating and have some analysis on good and bad ratings too), mean of prices and retail prices, units solds and so on.
+
+
+>> DATA CLEANING
+
+urgency_text has NA values. converted to empty text (where there is no urgency banner)
+
+```{r}
+products |>
+  mutate(has_urgency_banner = ifelse(is.na(has_urgency_banner), 0, has_urgency_banner)) |>
+  mutate(urgency_text = ifelse(is.na(urgency_text), " ", urgency_text)) -> products
+```
+
+product_variation_size_id
+
+The column is not tidy. It requires some adjustments and cleaning.
+E.g. we can see both 'M' and 'M.' in this column.
+```{r}
+products |>
+  distinct(product_variation_size_id) -> sizes
+sizes
+```
+
+
+
+
+>> PLOTS
+
+```{r}
+sample_size = products |>
+  group_by(origin_country) |>
+  summarize(num=n())
+
+products |>
+  left_join(sample_size) |>
+  drop_na(origin_country) |>
+  mutate(origin_count = paste0(origin_country, "\n", "n=", num)) |>
+  ggplot(aes(x = origin_count, y = rating, fill = factor(origin_country))) +
+  geom_violin() +
+  geom_jitter(height = 0, width = 0.001) +
+  labs(title = "Distribution of Ratings by Country of Origin",
+    x = "Country of Origin",
+    y = "Rating") +
+  scale_fill_discrete(name = "Country of Origin", 
+                      labels = c("CN" = "China", 
+                                 "SG" = "Singapore", 
+                                 "US" = "United States", 
+                                 "VE" = "Venezuela",
+                                 "AT" = "Austria", 
+                                 "GB" = "United Kingdom (Great Britain)")) 
+```
+
+
+```{r}
+sample_size = products |>
+  group_by(shipping_option_name) |>
+  summarize(num=n())
+
+subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))) |>
+  left_join(sample_size) |>
+  mutate(origin_count = paste0(shipping_option_name, "\n", "n=", num)) |>
+  ggplot(aes(x = shipping_option_name, y = price)) +
+  geom_point(aes(color = shipping_option_price)) +
+  scale_color_gradient(low = "yellow", high = "blue") +
+  labs(title = "Relationship between Shipping Option and Price",
+    x = "Shipping Option",
+    y = "price",
+    color = "Shipping price") +
+  # coord_fixed() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+```
+
+
+```{r}
+subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))) |>
+  ggplot(aes(x = shipping_option_name, y = shipping_option_price)) +
+  geom_point(aes(color = factor(shipping_is_express))) +
+  labs(title = "Relationship between Shipping Option and Price and whether it is express or not",
+    x = "Shipping Option",
+    y = "Shipping Option Price", 
+    color = "Express Shipping") +
+  scale_color_manual(labels = c("Not Express", "Express"), values = c("red", "blue")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+```
+# Merchant info subtitle ~ merchant rating
+see if the subtitles are valid
+
+```{r}
+products |>
+  filter(grepl("^\\d", merchant_info_subtitle)) |>
+  select(merchant_info_subtitle, merchant_rating) |>
+  mutate(percentage_value = as.numeric(str_extract(merchant_info_subtitle, "^\\d+"))) |>
+  ggplot(aes(x = merchant_rating, y = percentage_value)) +
+  geom_point() +
+  # geom_abline(slope = 21, intercept = 0, color = "red") +
+  labs(
+    title = "Merchant Rating vs Percentage of Positive Review",
+    x = "Merchant Rating",
+    y = "Percentage of Positive Reviews",
+    caption = "Data filtered based on merchant_info_subtitle starting with a number"
+  )
+```
+
+```{r}
+products |>
+  ggplot(aes(x = retail_price, y = price)) +
+  geom_point() +
+  xlim(0, 255) +
+  ylim(0, 255) +
+  geom_abline(slope = 1, color = "red") +
+  labs(x = "Retail Price",
+       y = "Price")
+```
+price - retail_price ~ units_sold
+
+
+```{r}
+products |>
+  summarise(difference = price - retail_price) |>
+  mutate(units_sold = products$units_sold) |>
+  ggplot(aes(x = difference, y = units_sold, color = ifelse(difference < 0, "Negative", "Positive"))) +
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Plot of Units Sold for Positive and Negative Differences",
+    x = "Difference (Price - Retail Price)",
+    y = "Units Sold",
+    color = "Difference"
+  ) +
+  scale_color_manual(values = c("Negative" = "red", "Positive" = "green"))
+
+```
+```{r}
+products |>
+  distinct(units_sold)
+```
+
+// TODO
+
+```{r}
+library(ggthemes)
+options(scipen = 999)  # turns of scientific notations like 1e+40
+
+
+# X Axis Breaks and Labels 
+brks <- seq(-15000000, 15000000, 5000000)
+lbls = paste0(as.character(c(seq(15, 0, -5), seq(5, 15, 5))), "m")
+
+# Plot
+products |>
+  summarise(difference = price - retail_price) |>
+  mutate(units_sold = products$units_sold) |>
+  ggplot(aes(x = difference, y = units_sold, fill = ifelse(difference < 0, "Negative", "Positive"))) +   # Fill column
+                              geom_bar(stat = "identity", width = .6) +   # draw the bars
+                              scale_y_continuous(breaks = brks,   # Breaks
+                                                 labels = lbls) + # Labels
+                              coord_flip() +  # Flip axes
+                              labs(title="Email Campaign Funnel") +
+                              theme_tufte() +  # Tufte theme from ggfortify
+                              theme(plot.title = element_text(hjust = .5), 
+                                    axis.ticks = element_blank()) +   # Centre plot title
+                              scale_fill_brewer(palette = "Dark2")  # Color palette
+
+```
+
+
+# product color ~ units sold for each color
+
+```{r}
+products |>
+  mutate(product_color = tolower(product_color),
+         product_color = ifelse(product_color %in% c("gray", "grey"), "gray", product_color)) |>
+  group_by(product_color) |>
+  summarise(total_units_sold = sum(units_sold)) |>
+  drop_na() |>
+  top_n(20, total_units_sold) |>
+  ggplot(aes(x = total_units_sold, y = reorder(product_color, total_units_sold))) +
+  geom_bar(stat = "identity", color = "red") +
+  geom_text(aes(label = total_units_sold), vjust = 0.5, color = "black", position = position_dodge(width = 1)) +
+  labs(title = "Units Sold by Color", x = "Total Units Sold", y = "Color") +
+  scale_x_continuous(labels = scales::comma_format())
+```
+
+
+# price ~ units_sold. badge_count has urgency banner
+
+
+```{r}
+theme_set(theme_bw())
+products |>
+  ggplot(aes(price, units_sold)) + 
+  geom_count(aes(color = as.factor(has_urgency_banner))) +
+  labs(title = "Relationship between Price and Units Sold",
+       x = "Price",
+       y = "Units Sold",
+       color = "Urgency Banner") -> g
+ggMarginal(g, type = "histogram", fill="transparent")
+```
+
+
+
+```{r}
+products |>
+  group_by(urgency_text) |>
+  summarise(total_units_sold = sum(units_sold)) |>
+  filter(urgency_text != " ") |>
+  mutate(fraction = total_units_sold/sum(total_units_sold)) |>
+  mutate(ymax = cumsum(fraction)) |>
+  mutate(ymin = c(0, head(ymax, n=-1))) |>
+  mutate(labelPosition = (ymax + ymin) / 2) |>
+  mutate(label = paste0(urgency_text, "\n total units sold: ", total_units_sold, "\n ", round(fraction*100, 2), "%")) |>
+  ggplot(aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=urgency_text)) +
+  geom_rect() +
+  geom_text(x=0.5, aes(y=labelPosition, label=label, color=urgency_text), size=5) + # x here controls label position (inner / outer)
+  scale_fill_brewer(palette = "Set2") +
+  scale_color_brewer(palette = "Set2") +
+  coord_polar(theta="y") +
+  xlim(c(-1, 4)) +
+  theme_void() +
+  theme(legend.position = "none")
+```
+
+
+
 
 
 
