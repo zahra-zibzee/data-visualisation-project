@@ -15,6 +15,7 @@ library(dplyr)
 library(GGally)
 library(ggExtra)
 library(stringr)
+library(rmarkdown)
 ```
 
 
@@ -27,19 +28,6 @@ products <- readr::read_csv("data/summer_products_with_rating_and_performance_20
 >> Things TODO
 
 Do analysis on tag, then group by clothes into two groups of men and women. 
-
-countries_shipped_to ~ units_sold 
-(because if seller increases the number of countries for shipping, number of demands also increases.)
-
-merchant_has_profile_picture could also have some effects :?
-
->> Best sellers
-
-We can have a discussion on sellers too. Best sellers based on number of units sold, rating, mean of products price comparing with mean of retail prices, mean of discounts, mean of product ratings and so on. 
-
->> Best products
-
-Based on ratings (mean and median, also we can define a range for bad and good rating and have some analysis on good and bad ratings too), mean of prices and retail prices, units solds and so on.
 
 
 >> DATA CLEANING
@@ -70,7 +58,7 @@ sizes
 
 # product color ~ units sold for each color
 
-## I expected the summer colors like pink and yellow have the most unit sold, however, we can see still black and white remained the most popular colors
+## I expected that summer colors like pink and yellow would have the highest number of units sold. However, it is evident that black and white remained the most popular colors.
 !!!!!!!!!!!! Rose Red
 
 ```{r}
@@ -92,8 +80,9 @@ your_custom_color_vector <- c(
   "armygreen" = "#4B5320",
   "khaki" = "#F0E68C",
   "floral" = "#FFC0CB", 
-  "rose red" = "#FF033E",
-  "beige" = "#F5F5DC"
+  "rosered" = "#FF033E",
+  "beige" = "#F5F5DC",
+  "skyblue" = "#87CEEB"
 )
 ```
 
@@ -102,24 +91,24 @@ products |>
   mutate(product_color = tolower(product_color),
          product_color = ifelse(product_color %in% c("gray", "grey"), "gray", product_color),
          product_color = ifelse(product_color %in% c("wine red", "winered"), "wine red", product_color)) |>
-        
   group_by(product_color) |>
   summarise(total_units_sold = sum(units_sold)) |>
   drop_na() |>
   top_n(20, total_units_sold) |>
   ggplot(aes(x = total_units_sold, y = reorder(product_color, total_units_sold), fill = product_color)) +
   geom_bar(stat = "identity", show.legend = FALSE) +
-  geom_text(aes(label = total_units_sold), vjust = 0.5, color = "black", 
-            nudge_x = 100000) +  # Adjust nudge_x as needed
+  geom_text(aes(label = total_units_sold), vjust = 0.5, color = "black", nudge_x = 100000) +  # adjust nudge_x manually
   labs(title = "Units Sold by Color", x = "Total Units Sold", y = "Color") +
   scale_x_continuous(labels = scales::comma_format()) +
   scale_fill_manual(values = your_custom_color_vector)
 ```
 # Rating ~ Country of Origin
+# Sale's performance by country of origin
 
-## The ratings from China, being the most numerous, show a broad distribution, suggesting a diverse range of product satisfaction. In contrast, the fewer ratings from countries like Singapore and Venezuela indicate a more uniform rating pattern, though it's crucial to note the smaller sample size.
+## The ratings from China, being the most numerous, show a broad distribution, with a diverse range of product satisfaction. However, the fewer ratings from countries like Singapore and Venezuela indicate a more uniform rating pattern, it's crucial to note the smaller sample size for these countries.
 
-## The key takeaway from this plot could be the insight into the perceived quality of goods from different origins. Products from the United States show a narrower distribution skewed towards higher ratings, possibly indicating a consistent quality that meets customer expectations. The visualization underscores the importance of quality control and customer satisfaction in global e-commerce operations.
+## When it comes to product quality, items made in the United States tend to have consistently high ratings, indicating that they often meet customer expectations and have a more consistent level of quality. 
+
 
 
 ```{r}
@@ -146,13 +135,52 @@ products |>
                                  "GB" = "United Kingdom (Great Britain)"))
 ```
 
+# Shipping Company ~ Average Shipping Price
+
+## Notably, options like "Ekspresowa wysyłka" and "Livraison Express" which are express, almost double the price of standard delivery.
+
+```{r}
+ggplot(subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))),
+       aes(x = shipping_option_name, y = shipping_option_price, fill = factor(shipping_is_express))) +
+  stat_summary(fun = "mean", geom = "col") +
+  labs(title = "Average Shipping Price by Company and Express Status",
+       x = "Shipping Company",
+       y = "Average Shipping Price",
+       fill = "Express Shipping") +
+  scale_fill_manual(labels = c("Not Express", "Express"), values = c("red", "blue")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+```
+
+
+```{r}
+sample_size = products |>
+  group_by(shipping_option_name) |>
+  summarize(num=n())
+
+subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))) |>
+  left_join(sample_size) |>
+  mutate(origin_count = paste0(shipping_option_name, "\n", "n=", num)) |>
+  ggplot(aes(x = shipping_option_name, y = price)) +
+  geom_point(aes(color = shipping_option_price)) +
+  scale_color_gradient(low = "yellow", high = "blue") +
+  labs(title = "Relationship between Shipping Price and Product Price",
+    x = "Shipping Company",
+    y = "Product Price",
+    color = "Shipping price") +
+  # coord_fixed() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+```
+
+
+
 # Merchant info subtitle ~ merchant rating
 ## see if the subtitles are valid, the strength of the correlation between merchant ratings and the percentage of positive reviews.
-## In reviews (merchant info subtitle), we have a review like "97 % avis positifs (160 notes)". We need to confirm this positive reviews based on merchant ratings. 
+## In reviews (merchant info subtitle), a review would be like "97 % avis positifs (160 notes)". We need to confirm this positive reviews based on merchant ratings. 
 
-## This scatter plot explores the relationship between merchants' ratings on Wish.com and the percentage of positive reviews highlighted in their profile subtitles. The presence of a positive correlation, if the trend line slopes upward, suggests that higher merchant ratings tend to coincide with a higher percentage of positive reviews, which could imply that the subtitles provide a trustworthy reflection of customer satisfaction. A correlation coefficient closer to 1 or -1 indicates a stronger relationship.
+## This scatter plot explores the relationship between merchants' ratings on Wish.com and the percentage of positive reviews highlighted in their profile subtitles. The presence of a positive correlation, as could be seen the trend line slopes upward, suggests that higher merchant ratings tend to coincide with a higher percentage of positive reviews, which could imply that the subtitles provide a trustworthy reflection of customer satisfaction. Since the correlation is highly strong, it suggests that customers' perceptions (as shown by the merchant rating) are in line with the advertised positive review percentages.
 
-## If the correlation is high, it suggests that customers' perceptions (as shown by the merchant rating) are in line with the advertised positive review percentages, lending credibility to the merchants' self-reported statistics. However, any significant deviations or outliers may indicate discrepancies that could warrant further investigation, such as whether certain merchants are more successful in cultivating a positive image regardless of actual customer satisfaction. This analysis could provide valuable insights into consumer behavior and merchant reputation on the platform.
 
 
 ```{r}
@@ -167,7 +195,7 @@ correlation <- cor(part_of_products$merchant_rating, part_of_products$percentage
 part_of_products |>
   ggplot(aes(x = merchant_rating, y = percentage_value)) +
   geom_point(alpha = 0.5) +
-  geom_smooth(method = "lm", color = "blue") +  # Adds a linear regression line
+  geom_smooth(method = "lm", color = "red") + 
   geom_text(aes(label = sprintf("correlation = %.2f", correlation)), x = 2.5, y = 100, hjust = 0, vjust = 1, color = "red") +  # Correlation
   labs(
     title = "Merchant Rating vs Percentage of Positive Reviews",
@@ -176,42 +204,63 @@ part_of_products |>
     caption = "Data filtered based on merchant_info_subtitle starting with a number. Correlation coefficient shown in red."
   )
 ```
+# Merchant rating ~ Product rating 
 
+## Positive Correlation: As the merchant rating increases, the product rating also tends to increase. This suggests that merchants with higher ratings tend to sell products that are also rated more highly, which could indicate that higher-rated merchants provide better quality products or service, leading to better customer satisfaction overall.
 
+## Variability: There is variability in product ratings across the same merchant rating level, especially in the middle range of merchant ratings. This could indicate that while the merchant's service and reputation affect product ratings, other factors also play a significant role in a product's rating, such as product quality, customer expectations, or the nature of the product itself. Since the correlation is not close to 1, it suggests that the merchant rating alone does not strongly predict the product rating. There is a lot of variability in the product ratings that is not explained by merchant ratings alone.
 
 ```{r}
-sample_size = products |>
-  group_by(shipping_option_name) |>
-  summarize(num=n())
-
-subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))) |>
-  left_join(sample_size) |>
-  mutate(origin_count = paste0(shipping_option_name, "\n", "n=", num)) |>
-  ggplot(aes(x = shipping_option_name, y = price)) +
-  geom_point(aes(color = shipping_option_price)) +
-  scale_color_gradient(low = "yellow", high = "blue") +
-  labs(title = "Relationship between Shipping Option and Price",
-    x = "Shipping Option",
-    y = "price",
-    color = "Shipping price") +
-  # coord_fixed() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-
+correlation <- cor(products$rating, products$merchant_rating, use = "complete.obs")
+products |>
+  ggplot(aes(x = merchant_rating, y = rating)) +
+  geom_point(alpha = 0.6) +  
+  geom_smooth(method = "lm", color = "blue") + 
+  annotate("text", x = max(products$merchant_rating), y = min(products$rating), 
+           label = paste("Pearson r:", round(correlation, 2)), hjust = 2, vjust = -0.5, color='red') +
+  labs(title = "Rating vs. Merchant Rating",
+       x = "Merchant Rating",
+       y = "Product Rating") 
 ```
 
 
+>> Some failed plots
+
+# Impact of Ad Boosts on Sales
+## There is no effectiveness of ad boosts in increasing sales.
+
+
 ```{r}
-subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))) |>
-  ggplot(aes(x = shipping_option_name, y = shipping_option_price)) +
-  geom_point(aes(color = factor(shipping_is_express))) +
-  labs(title = "Relationship between Shipping Option and Price and whether it is express or not",
-    x = "Shipping Option",
-    y = "Shipping Option Price", 
-    color = "Express Shipping") +
-  scale_color_manual(labels = c("Not Express", "Express"), values = c("red", "blue")) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+products |>
+  ggplot(aes(x = factor(uses_ad_boosts), y = units_sold)) +
+  geom_boxplot(outlier.shape = NA) +
+  geom_jitter(width = 0.2, alpha = 0.5) + 
+  labs(
+    title = "Impact of Ad Boosts on Sales",
+    x = "Ad Boosts",
+    y = "Units Sold"
+  ) +
+  theme_minimal() +
+  scale_x_discrete(labels = c("0" = "Without Ad Boost", "1" = "With Ad Boost"))  
+
 ```
 
+# price - retail_price ~ units_sold
+
+```{r}
+products |>
+  mutate(difference = price - retail_price,
+         difference_type = ifelse(difference < 0, "Negative", "Positive")) |>
+  ggplot(aes(x = difference, fill = difference_type)) +
+  geom_histogram(binwidth = 1, position = "identity", alpha = 0.6) +
+  labs(
+    title = "Plot of Units Sold for Positive and Negative Differences",
+    x = "Difference (Price - Retail Price)",
+    y = "Count of Units Sold"
+  ) +
+  scale_fill_manual(values = c("Negative" = "red", "Positive" = "green")) +
+  theme_minimal()
+```
 
 
 ```{r}
@@ -224,62 +273,26 @@ products |>
   labs(x = "Retail Price",
        y = "Price")
 ```
-price - retail_price ~ units_sold
-
-
-```{r}
-products |>
-  summarise(difference = price - retail_price) |>
-  mutate(units_sold = products$units_sold) |>
-  ggplot(aes(x = difference, y = units_sold, color = ifelse(difference < 0, "Negative", "Positive"))) +
-  geom_bar(stat = "identity") +
-  labs(
-    title = "Plot of Units Sold for Positive and Negative Differences",
-    x = "Difference (Price - Retail Price)",
-    y = "Units Sold",
-    color = "Difference"
-  ) +
-  scale_color_manual(values = c("Negative" = "red", "Positive" = "green"))
-
-```
-```{r}
-products |>
-  distinct(units_sold)
-```
-
-// TODO
-
-```{r}
-library(ggthemes)
-options(scipen = 999)  # turns of scientific notations like 1e+40
-
-
-# X Axis Breaks and Labels 
-brks <- seq(-15000000, 15000000, 5000000)
-lbls = paste0(as.character(c(seq(15, 0, -5), seq(5, 15, 5))), "m")
-
-# Plot
-products |>
-  summarise(difference = price - retail_price) |>
-  mutate(units_sold = products$units_sold) |>
-  ggplot(aes(x = difference, y = units_sold, fill = ifelse(difference < 0, "Negative", "Positive"))) +   # Fill column
-                              geom_bar(stat = "identity", width = .6) +   # draw the bars
-                              scale_y_continuous(breaks = brks,   # Breaks
-                                                 labels = lbls) + # Labels
-                              coord_flip() +  # Flip axes
-                              labs(title="Email Campaign Funnel") +
-                              theme_tufte() +  # Tufte theme from ggfortify
-                              theme(plot.title = element_text(hjust = .5), 
-                                    axis.ticks = element_blank()) +   # Centre plot title
-                              scale_fill_brewer(palette = "Dark2")  # Color palette
-
-```
-
-
 
 
 # price ~ units_sold. badge_count has urgency banner
 
+## No Idea what to do with this plot
+
+```{r}
+products |>
+  ggplot(aes(x = price, y = units_sold, color = as.factor(has_urgency_banner))) + 
+  geom_point(alpha = 0.5) + 
+  scale_x_log10() +  
+  scale_y_log10() + 
+  labs(title = "Relationship between Price and Units Sold",
+       x = "Price (log scale)",
+       y = "Units Sold (log scale)",
+       color = "Urgency Banner") +
+  theme(legend.position = "bottom")
+
+```
+# Price ~ Units sold
 
 ```{r}
 theme_set(theme_bw())
