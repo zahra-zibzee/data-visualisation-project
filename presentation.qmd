@@ -1,0 +1,121 @@
+---
+title: "Summer Products Sales Analysis on Wish.com"
+subtitle: "nothing for now"
+author: "Zahra Hashemi"
+date: "2024-1-25"
+format: 
+  revealjs:
+    transition: slide
+editor: visual
+warnings: false
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(GGally)
+library(ggExtra)
+library(stringr)
+library(rmarkdown)
+library(knitr)
+```
+
+
+```{r, include=FALSE}
+products <- readr::read_csv("data/summer_products_with_rating_and_performance_2020_08.csv", show_col_types = FALSE)
+```
+
+```{r, include=FALSE}
+products |>
+  mutate(has_urgency_banner = ifelse(is.na(has_urgency_banner), 0, has_urgency_banner)) |>
+  mutate(urgency_text = ifelse(is.na(urgency_text), " ", urgency_text)) -> products
+```
+# Introduction
+
+In this project, we are planning to analyze summer-related products as of July 2020. The dataset consists of a snapshot of some of the products available on the e-commerce platform Wish.com.
+
+## Source
+
+The [dataset](https://data.world/jfreex/summer-products-and-sales-performance-in-e-commerce-on-wish) is sourced from data.world.
+
+## shape of data
+
+```r 
+observations: 1,573 variables: 43
+
+part of the table:
+
+$ title                     <chr> "2020 Summer Vintage Flamingo Print  Pajamas Set Casual...", ...
+$ price                     <dbl> 16.00, 8.00, 8.00, 8.00, 2.72, 3.92, 7.00, 12.00,
+$ retail_price              <dbl> 14, 22, 43, 8, 3, 9, 6, 11, 84, 22, 5, 8, 6, 42, 2, 81, 10, 25, 9,
+$ product_id                <chr> "5e9ae51d43d6a96e303acdb0", "58940d436a0d3d5da4e95a38",...
+$ units_sold                <dbl> 1e+02, 2e+04, 1e+02, 5e+03, 1e+02, 1e+01, 5e+04, 1e+03,
+$ uses_ad_boosts            <dbl> 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+$ rating                    <dbl> 3.76, 3.45, 3.57, 4.03, 3.10, 5.00, 3.84, 3.76, 3.47, 3.60, 3.4..
+$ tags                      <chr> "Summer,Fashion,womenunderwearsuit,printedpajamasset,womencasualshort,Wo..", ..
+$ product_color             <chr> "white", "green", "leopardprint", "black", "yellow", "navyblue", ...
+$ shipping_option_name      <chr> "Livraison standard", "Livraison standard", "Livraison standard",..
+$ shipping_option_price     <dbl> 4, 2, 3, 2, 1, 1, 2, 3, 2, 2, 2, 2, 1, 2,
+$ shipping_is_express       <dbl> 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,..
+$ has_urgency_banner        <dbl> 1, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0,
+$ urgency_text              <chr> "Quantité limitée !", "Quantité limitée !", "Quantité limitée !" ...
+$ origin_country            <chr> "CN", "CN", "CN", "CN", "CN", "CN", "CN", "CN", "CN", "CN", "CN",...
+$ merchant_name             <chr> "zgrdejia", "sarahouse", "hxt520", "allenfan", "happyhorses",
+$ merchant_info_subtitle    <chr> "83 % avis positifs (17,752 notes)", "86 % avis positifs (295 notes)"…
+$ merchant_rating           <dbl> 4.128521, 3.899673, 3.989831, 4.020435, 4.001588, 3.507692, 4.076516, 3...
+$ product_url                  <chr> "https://www.wish.com/c/5e9ae51d43d6a96e303acdb0", "https://www.wish.com/c/58940d436…
+
+ ```
+
+
+## Summer colors or still going by trend?
+
+```{r}
+your_custom_color_vector <- c(
+  "black" = "#000000",
+  "white" = "#FFFFFF",
+  "gray" = "#808080",
+  "purple" = "#800080",
+  "blue" = "#0000FF",
+  "red" = "#FF0000",
+  "green" = "#008000",
+  "pink" = "#FFC0CB",
+  "yellow" = "#FFFF00",
+  "orange" = "#FFA500",
+  "navyblue" = "#000080",
+  "multicolor" = "#A0A0A0", 
+  "light green" = "#90EE90",
+  "wine red" = "#722F37",
+  "armygreen" = "#4B5320",
+  "khaki" = "#F0E68C",
+  "floral" = "#FFC0CB", 
+  "rosered" = "#FF033E",
+  "beige" = "#F5F5DC",
+  "skyblue" = "#87CEEB"
+)
+```
+
+```{r}
+products |>
+  mutate(product_color = tolower(product_color),
+         product_color = ifelse(product_color %in% c("gray", "grey"), "gray", product_color),
+         product_color = ifelse(product_color %in% c("wine red", "winered"), "wine red", product_color)) |>
+  group_by(product_color) |>
+  summarise(total_units_sold = sum(units_sold)) |>
+  drop_na() |>
+  top_n(20, total_units_sold) |>
+  ggplot(aes(x = total_units_sold, y = reorder(product_color, total_units_sold), fill = product_color)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  geom_text(aes(label = total_units_sold), vjust = 0.5, color = "black", nudge_x = 100000) +  # adjust nudge_x manually
+  labs(title = "Units Sold by Color", x = "Total Units Sold", y = "Color") +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_fill_manual(values = your_custom_color_vector)
+```
+
+
+
+
+
+
+
