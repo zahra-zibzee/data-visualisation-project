@@ -153,26 +153,6 @@ ggplot(subset(products, !(shipping_option_name %in% c( "การส่งสิ
 ```
 
 
-```{r}
-sample_size = products |>
-  group_by(shipping_option_name) |>
-  summarize(num=n())
-
-subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))) |>
-  left_join(sample_size) |>
-  mutate(origin_count = paste0(shipping_option_name, "\n", "n=", num)) |>
-  ggplot(aes(x = shipping_option_name, y = price)) +
-  geom_point(aes(color = shipping_option_price)) +
-  scale_color_gradient(low = "yellow", high = "blue") +
-  labs(title = "Relationship between Shipping Price and Product Price",
-    x = "Shipping Company",
-    y = "Product Price",
-    color = "Shipping price") +
-  # coord_fixed() +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-
-```
-
 
 
 # Merchant info subtitle ~ merchant rating
@@ -222,6 +202,26 @@ products |>
        y = "Product Rating") 
 ```
 
+
+```{r}
+sample_size = products |>
+  group_by(shipping_option_name) |>
+  summarize(num=n())
+
+subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))) |>
+  left_join(sample_size) |>
+  mutate(origin_count = paste0(shipping_option_name, "\n", "n=", num)) |>
+  ggplot(aes(x = shipping_option_name, y = price)) +
+  geom_point(aes(color = shipping_option_price)) +
+  scale_color_gradient(low = "yellow", high = "blue") +
+  labs(title = "Relationship between Shipping Price and Product Price",
+    x = "Shipping Company",
+    y = "Product Price",
+    color = "Shipping price") +
+  # coord_fixed() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+```
 
 >> Some failed plots
 
