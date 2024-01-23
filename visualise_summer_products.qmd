@@ -14,6 +14,7 @@ library(ggplot2)
 library(dplyr)
 library(GGally)
 library(ggExtra)
+library(stringr)
 ```
 
 
@@ -66,6 +67,61 @@ sizes
 
 >> PLOTS
 
+
+# product color ~ units sold for each color
+
+## I expected the summer colors like pink and yellow have the most unit sold, however, we can see still black and white remained the most popular colors
+!!!!!!!!!!!! Rose Red
+
+```{r}
+your_custom_color_vector <- c(
+  "black" = "#000000",
+  "white" = "#FFFFFF",
+  "gray" = "#808080",
+  "purple" = "#800080",
+  "blue" = "#0000FF",
+  "red" = "#FF0000",
+  "green" = "#008000",
+  "pink" = "#FFC0CB",
+  "yellow" = "#FFFF00",
+  "orange" = "#FFA500",
+  "navyblue" = "#000080",
+  "multicolor" = "#A0A0A0", 
+  "light green" = "#90EE90",
+  "wine red" = "#722F37",
+  "armygreen" = "#4B5320",
+  "khaki" = "#F0E68C",
+  "floral" = "#FFC0CB", 
+  "rose red" = "#FF033E",
+  "beige" = "#F5F5DC"
+)
+```
+
+```{r}
+products |>
+  mutate(product_color = tolower(product_color),
+         product_color = ifelse(product_color %in% c("gray", "grey"), "gray", product_color),
+         product_color = ifelse(product_color %in% c("wine red", "winered"), "wine red", product_color)) |>
+        
+  group_by(product_color) |>
+  summarise(total_units_sold = sum(units_sold)) |>
+  drop_na() |>
+  top_n(20, total_units_sold) |>
+  ggplot(aes(x = total_units_sold, y = reorder(product_color, total_units_sold), fill = product_color)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  geom_text(aes(label = total_units_sold), vjust = 0.5, color = "black", 
+            nudge_x = 100000) +  # Adjust nudge_x as needed
+  labs(title = "Units Sold by Color", x = "Total Units Sold", y = "Color") +
+  scale_x_continuous(labels = scales::comma_format()) +
+  scale_fill_manual(values = your_custom_color_vector)
+```
+# Rating ~ Country of Origin
+
+## The ratings from China, being the most numerous, show a broad distribution, suggesting a diverse range of product satisfaction. In contrast, the fewer ratings from countries like Singapore and Venezuela indicate a more uniform rating pattern, though it's crucial to note the smaller sample size.
+
+## The key takeaway from this plot could be the insight into the perceived quality of goods from different origins. Products from the United States show a narrower distribution skewed towards higher ratings, possibly indicating a consistent quality that meets customer expectations. The visualization underscores the importance of quality control and customer satisfaction in global e-commerce operations.
+
+
 ```{r}
 sample_size = products |>
   group_by(origin_country) |>
@@ -77,18 +133,50 @@ products |>
   mutate(origin_count = paste0(origin_country, "\n", "n=", num)) |>
   ggplot(aes(x = origin_count, y = rating, fill = factor(origin_country))) +
   geom_violin() +
-  geom_jitter(height = 0, width = 0.001) +
+  geom_jitter(height = 0, width = 0.2, alpha = 0.5) +      # geom_jitter(height = 0, width = 0.001)     ## previous code
   labs(title = "Distribution of Ratings by Country of Origin",
     x = "Country of Origin",
     y = "Rating") +
-  scale_fill_discrete(name = "Country of Origin", 
-                      labels = c("CN" = "China", 
+  scale_fill_brewer(palette = "Pastel1", name = "Country of Origin", 
+                    labels = c("CN" = "China", 
                                  "SG" = "Singapore", 
                                  "US" = "United States", 
                                  "VE" = "Venezuela",
                                  "AT" = "Austria", 
-                                 "GB" = "United Kingdom (Great Britain)")) 
+                                 "GB" = "United Kingdom (Great Britain)"))
 ```
+
+# Merchant info subtitle ~ merchant rating
+## see if the subtitles are valid, the strength of the correlation between merchant ratings and the percentage of positive reviews.
+## In reviews (merchant info subtitle), we have a review like "97 % avis positifs (160 notes)". We need to confirm this positive reviews based on merchant ratings. 
+
+## This scatter plot explores the relationship between merchants' ratings on Wish.com and the percentage of positive reviews highlighted in their profile subtitles. The presence of a positive correlation, if the trend line slopes upward, suggests that higher merchant ratings tend to coincide with a higher percentage of positive reviews, which could imply that the subtitles provide a trustworthy reflection of customer satisfaction. A correlation coefficient closer to 1 or -1 indicates a stronger relationship.
+
+## If the correlation is high, it suggests that customers' perceptions (as shown by the merchant rating) are in line with the advertised positive review percentages, lending credibility to the merchants' self-reported statistics. However, any significant deviations or outliers may indicate discrepancies that could warrant further investigation, such as whether certain merchants are more successful in cultivating a positive image regardless of actual customer satisfaction. This analysis could provide valuable insights into consumer behavior and merchant reputation on the platform.
+
+
+```{r}
+# Calculate correlation coefficient
+products |>
+  filter(grepl("^\\d", merchant_info_subtitle)) |>
+  select(merchant_info_subtitle, merchant_rating) |>
+  mutate(percentage_value = as.numeric(str_extract(merchant_info_subtitle, "^\\d+"))) -> part_of_products
+
+correlation <- cor(part_of_products$merchant_rating, part_of_products$percentage_value, use = "complete.obs")
+
+part_of_products |>
+  ggplot(aes(x = merchant_rating, y = percentage_value)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "blue") +  # Adds a linear regression line
+  geom_text(aes(label = sprintf("correlation = %.2f", correlation)), x = 2.5, y = 100, hjust = 0, vjust = 1, color = "red") +  # Correlation
+  labs(
+    title = "Merchant Rating vs Percentage of Positive Reviews",
+    x = "Merchant Rating",
+    y = "Percentage of Positive Reviews",
+    caption = "Data filtered based on merchant_info_subtitle starting with a number. Correlation coefficient shown in red."
+  )
+```
+
 
 
 ```{r}
@@ -123,24 +211,8 @@ subset(products, !(shipping_option_name %in% c( "การส่งสินค�
   scale_color_manual(labels = c("Not Express", "Express"), values = c("red", "blue")) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 ```
-# Merchant info subtitle ~ merchant rating
-see if the subtitles are valid
 
-```{r}
-products |>
-  filter(grepl("^\\d", merchant_info_subtitle)) |>
-  select(merchant_info_subtitle, merchant_rating) |>
-  mutate(percentage_value = as.numeric(str_extract(merchant_info_subtitle, "^\\d+"))) |>
-  ggplot(aes(x = merchant_rating, y = percentage_value)) +
-  geom_point() +
-  # geom_abline(slope = 21, intercept = 0, color = "red") +
-  labs(
-    title = "Merchant Rating vs Percentage of Positive Review",
-    x = "Merchant Rating",
-    y = "Percentage of Positive Reviews",
-    caption = "Data filtered based on merchant_info_subtitle starting with a number"
-  )
-```
+
 
 ```{r}
 products |>
@@ -204,22 +276,6 @@ products |>
 ```
 
 
-# product color ~ units sold for each color
-
-```{r}
-products |>
-  mutate(product_color = tolower(product_color),
-         product_color = ifelse(product_color %in% c("gray", "grey"), "gray", product_color)) |>
-  group_by(product_color) |>
-  summarise(total_units_sold = sum(units_sold)) |>
-  drop_na() |>
-  top_n(20, total_units_sold) |>
-  ggplot(aes(x = total_units_sold, y = reorder(product_color, total_units_sold))) +
-  geom_bar(stat = "identity", color = "red") +
-  geom_text(aes(label = total_units_sold), vjust = 0.5, color = "black", position = position_dodge(width = 1)) +
-  labs(title = "Units Sold by Color", x = "Total Units Sold", y = "Color") +
-  scale_x_continuous(labels = scales::comma_format())
-```
 
 
 # price ~ units_sold. badge_count has urgency banner
