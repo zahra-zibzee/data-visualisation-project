@@ -1,11 +1,12 @@
 ---
 title: "Summer Products Sales Analysis on Wish.com"
-subtitle: "nothing for now"
+subtitle: "Data Visualisation Project"
 author: "Zahra Hashemi"
-date: "2024-1-25"
+date: "25 Jan 2024"
 format: 
   revealjs:
     transition: slide
+    slide-number: c
 editor: visual
 warnings: false
 ---
@@ -21,7 +22,6 @@ library(rmarkdown)
 library(knitr)
 ```
 
-
 ```{r, include=FALSE}
 products <- readr::read_csv("data/summer_products_with_rating_and_performance_2020_08.csv", show_col_types = FALSE)
 ```
@@ -31,17 +31,19 @@ products |>
   mutate(has_urgency_banner = ifelse(is.na(has_urgency_banner), 0, has_urgency_banner)) |>
   mutate(urgency_text = ifelse(is.na(urgency_text), " ", urgency_text)) -> products
 ```
-# Introduction
+
+::: slide
+## Introduction
 
 In this project, we are planning to analyze summer-related products as of July 2020. The dataset consists of a snapshot of some of the products available on the e-commerce platform Wish.com.
 
-## Source
+<br>
+The dataset is sourced from [data.world](https://data.world/jfreex/summer-products-and-sales-performance-in-e-commerce-on-wish).
+:::
 
-The [dataset](https://data.world/jfreex/summer-products-and-sales-performance-in-e-commerce-on-wish) is sourced from data.world.
+## dataset
 
-## shape of data
-
-```r 
+``` r
 observations: 1,573 variables: 43
 
 part of the table:
@@ -65,11 +67,11 @@ $ merchant_name             <chr> "zgrdejia", "sarahouse", "hxt520", "allenfan",
 $ merchant_info_subtitle    <chr> "83 % avis positifs (17,752 notes)", "86 % avis positifs (295 notes)"…
 $ merchant_rating           <dbl> 4.128521, 3.899673, 3.989831, 4.020435, 4.001588, 3.507692, 4.076516, 3...
 $ product_url                  <chr> "https://www.wish.com/c/5e9ae51d43d6a96e303acdb0", "https://www.wish.com/c/58940d436…
+```
 
- ```
+## Color Trends in Summer Sales
 
-
-## Summer colors or still going by trend?
+Summer colors or again popular colors?
 
 ```{r}
 your_custom_color_vector <- c(
@@ -113,9 +115,100 @@ products |>
   scale_fill_manual(values = your_custom_color_vector)
 ```
 
+Still, black and white are popular colors, even in summer!
 
+## Exploring Global Satisfaction
 
+A Comparative View of Product Ratings by Country of Origin
 
+```{r}
+sample_size = products |>
+  group_by(origin_country) |>
+  summarize(num=n())
 
+products |>
+  left_join(sample_size) |>
+  drop_na(origin_country) |>
+  mutate(origin_count = paste0(origin_country, "\n", "n=", num)) |>
+  ggplot(aes(x = origin_count, y = rating, fill = factor(origin_country))) +
+  geom_violin() +
+  geom_jitter(height = 0, width = 0.2, alpha = 0.5) +      # geom_jitter(height = 0, width = 0.001)     ## previous code
+  labs(title = "Distribution of Ratings by Country of Origin",
+    x = "Country of Origin",
+    y = "Rating") +
+  scale_fill_brewer(palette = "Pastel1", name = "Country of Origin", 
+                    labels = c("CN" = "China", 
+                                 "SG" = "Singapore", 
+                                 "US" = "United States", 
+                                 "VE" = "Venezuela",
+                                 "AT" = "Austria", 
+                                 "GB" = "United Kingdom (Great Britain)"))
+```
 
+## Trust in Ratings
+
+High Correlation Between Merchant Ratings and Positive Reviews
+
+```{r}
+products |>
+  filter(grepl("^\\d", merchant_info_subtitle)) |>
+  select(merchant_info_subtitle, merchant_rating) |>
+  mutate(percentage_value = as.numeric(str_extract(merchant_info_subtitle, "^\\d+"))) -> part_of_products
+
+correlation <- cor(part_of_products$merchant_rating, part_of_products$percentage_value, use = "complete.obs")
+
+part_of_products |>
+  ggplot(aes(x = merchant_rating, y = percentage_value)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", color = "red") + 
+  geom_text(aes(label = sprintf("correlation = %.2f", correlation)), x = 2.5, y = 100, hjust = 0, vjust = 1, color = "red") +  # Correlation
+  labs(
+    title = "Merchant Rating vs Percentage of Positive Reviews",
+    x = "Merchant Rating",
+    y = "Percentage of Positive Reviews",
+    caption = "Data filtered based on merchant_info_subtitle starting with a number. Correlation coefficient shown in red."
+  )
+```
+
+## Express vs Economy
+
+The Price of Speed in Shipping Choices
+
+```{r}
+ggplot(subset(products, !(shipping_option_name %in% c( "การส่งสินค้ามาตรฐาน", "الشحن القياسي", "ការដឹកជញ្ជូនតាមស្តង់ដារ"))),
+       aes(x = shipping_option_name, y = shipping_option_price, fill = factor(shipping_is_express))) +
+  stat_summary(fun = "mean", geom = "col") +
+  labs(title = "Average Shipping Price by Company and Express Status",
+       x = "Shipping Company",
+       y = "Average Shipping Price",
+       fill = "Express Shipping") +
+  scale_fill_manual(labels = c("Not Express", "Express"), values = c("red", "blue")) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+```
+
+## Reputation and Quality
+
+Examining the Link Between Merchant Rating and Product Satisfaction
+
+```{r}
+correlation <- cor(products$rating, products$merchant_rating, use = "complete.obs")
+products |>
+  ggplot(aes(x = merchant_rating, y = rating)) +
+  geom_point(alpha = 0.6) +  
+  geom_smooth(method = "lm", color = "blue") + 
+  annotate("text", x = max(products$merchant_rating), y = min(products$rating), 
+           label = paste("Pearson r:", round(correlation, 2)), hjust = 2, vjust = -0.5, color='red') +
+  labs(title = "Product Rating vs. Merchant Rating",
+       x = "Merchant Rating",
+       y = "Product Rating") 
+```
+
+The correlation is not very strong though! Other factors are involved too for sure
+
+## TODO
+
+* Doing analysis on tags, such as categorizing by men and women
+
+## Thank you for your attention!
 
