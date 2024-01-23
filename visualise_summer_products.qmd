@@ -16,13 +16,13 @@ library(GGally)
 library(ggExtra)
 library(stringr)
 library(rmarkdown)
+library(knitr)
 ```
 
 
 ```{r}
 products <- readr::read_csv("data/summer_products_with_rating_and_performance_2020_08.csv", show_col_types = FALSE)
 ```
-
 
 
 >> Things TODO
@@ -184,7 +184,6 @@ subset(products, !(shipping_option_name %in% c( "การส่งสินค�
 
 
 ```{r}
-# Calculate correlation coefficient
 products |>
   filter(grepl("^\\d", merchant_info_subtitle)) |>
   select(merchant_info_subtitle, merchant_rating) |>
@@ -218,7 +217,7 @@ products |>
   geom_smooth(method = "lm", color = "blue") + 
   annotate("text", x = max(products$merchant_rating), y = min(products$rating), 
            label = paste("Pearson r:", round(correlation, 2)), hjust = 2, vjust = -0.5, color='red') +
-  labs(title = "Rating vs. Merchant Rating",
+  labs(title = "Product Rating vs. Merchant Rating",
        x = "Merchant Rating",
        y = "Product Rating") 
 ```
